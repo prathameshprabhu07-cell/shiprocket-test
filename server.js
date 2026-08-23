@@ -1,5 +1,48 @@
+const express = require("express");
+
+const app = express();
+
+app.use(express.json());
+
+app.get("/", (req, res) => {
+  res.json({
+    status: "running",
+    service: "Shiprocket proxy"
+  });
+});
+
+// LOGIN TEST
+app.post("/test", async (req, res) => {
+  try {
+    const response = await fetch(
+      "https://apiv2.shiprocket.in/v1/external/auth/login",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          email: process.env.SHIPROCKET_EMAIL,
+          password: process.env.SHIPROCKET_PASSWORD
+        })
+      }
+    );
+
+    const text = await response.text();
+
+    res.status(response.status).send(text);
+
+  } catch (error) {
+    res.status(500).json({
+      error: error.message
+    });
+  }
+});
+
+// RATE CHECK
 app.post("/rate", async (req, res) => {
   try {
+
     console.log("RATE REQUEST:", req.body);
 
     const pickup = String(req.body.pickup_pincode || "").trim();
@@ -14,7 +57,12 @@ app.post("/rate", async (req, res) => {
       codAmount
     });
 
-    if (!pickup || !drop || !Number.isFinite(parcelWeight) || parcelWeight <= 0) {
+    if (
+      !pickup ||
+      !drop ||
+      !Number.isFinite(parcelWeight) ||
+      parcelWeight <= 0
+    ) {
       return res.status(400).json({
         success: false,
         message: "pickup_pincode, drop_pincode and weight are required",
@@ -49,7 +97,9 @@ app.post("/rate", async (req, res) => {
 
     const token = loginData.token;
 
-    // RATE
+    console.log("SHIPROCKET LOGIN: SUCCESS");
+
+    // RATE URL
     const rateUrl =
       "https://apiv2.shiprocket.in/v1/external/courier/serviceability/" +
       `?pickup_postcode=${encodeURIComponent(pickup)}` +
@@ -59,6 +109,7 @@ app.post("/rate", async (req, res) => {
 
     console.log("RATE URL:", rateUrl);
 
+    // RATE API
     const rateResponse = await fetch(rateUrl, {
       method: "GET",
       headers: {
@@ -76,12 +127,15 @@ app.post("/rate", async (req, res) => {
     try {
       rateData = JSON.parse(rateText);
     } catch {
-      rateData = { raw: rateText };
+      rateData = {
+        raw: rateText
+      };
     }
 
     return res.status(rateResponse.status).json(rateData);
 
   } catch (error) {
+
     console.error("RATE ERROR:", error);
 
     return res.status(500).json({
@@ -89,4 +143,8 @@ app.post("/rate", async (req, res) => {
       error: error.message
     });
   }
+});
+
+app.listen(process.env.PORT || 3000, "0.0.0.0", () => {
+  console.log("Shiprocket proxy running");
 });
