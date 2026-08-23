@@ -1,45 +1,3 @@
-const express = require("express");
-
-const app = express();
-
-app.use(express.json());
-
-app.get("/", (req, res) => {
-  res.json({
-    status: "running",
-    service: "Shiprocket proxy"
-  });
-});
-
-// LOGIN
-app.post("/test", async (req, res) => {
-  try {
-    const response = await fetch(
-      "https://apiv2.shiprocket.in/v1/external/auth/login",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          email: process.env.SHIPROCKET_EMAIL,
-          password: process.env.SHIPROCKET_PASSWORD
-        })
-      }
-    );
-
-    const text = await response.text();
-
-    res.status(response.status).send(text);
-
-  } catch (error) {
-    res.status(500).json({
-      error: error.message
-    });
-  }
-});
-
-// RATE CHECK
 app.post("/rate", async (req, res) => {
   try {
     const {
@@ -49,7 +7,7 @@ app.post("/rate", async (req, res) => {
       cod = 0
     } = req.body;
 
-    // Login first
+    // 1. Login
     const loginResponse = await fetch(
       "https://apiv2.shiprocket.in/v1/external/auth/login",
       {
@@ -72,13 +30,14 @@ app.post("/rate", async (req, res) => {
 
     const token = loginData.token;
 
-    // Rate API
+    // 2. Hyperlocal Rate API
     const rateUrl =
       `https://apiv2.shiprocket.in/v1/external/courier/serviceability/` +
       `?pickup_postcode=${encodeURIComponent(pickup_pincode)}` +
       `&delivery_postcode=${encodeURIComponent(drop_pincode)}` +
       `&weight=${encodeURIComponent(weight)}` +
-      `&cod=${encodeURIComponent(cod)}`;
+      `&cod=${encodeURIComponent(cod)}` +
+      `&only_local=1`;
 
     const rateResponse = await fetch(rateUrl, {
       method: "GET",
@@ -94,9 +53,8 @@ app.post("/rate", async (req, res) => {
 
   } catch (error) {
     res.status(500).json({
+      success: false,
       error: error.message
     });
   }
 });
-
-app.listen(process.env.PORT || 3000, "0.0.0.0");
