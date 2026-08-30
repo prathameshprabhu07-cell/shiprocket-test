@@ -120,8 +120,6 @@ app.post("/rate", async (req, res) => {
     });
 
 
-    // VALIDATION
-
     if (
       !pickup ||
       !drop ||
@@ -143,14 +141,10 @@ app.post("/rate", async (req, res) => {
     }
 
 
-    // LOGIN
-
     const token = await getShiprocketToken();
 
     console.log("SHIPROCKET LOGIN: SUCCESS");
 
-
-    // RATE URL
 
     const rateUrl =
       "https://apiv2.shiprocket.in/v1/external/courier/serviceability/" +
@@ -162,8 +156,6 @@ app.post("/rate", async (req, res) => {
 
     console.log("RATE URL:", rateUrl);
 
-
-    // RATE API
 
     const rateResponse = await fetch(rateUrl, {
       method: "GET",
@@ -230,10 +222,6 @@ app.post("/quick-rate", async (req, res) => {
     );
 
 
-    // -------------------------------------------------
-    // INPUTS
-    // -------------------------------------------------
-
     const pickup = String(
       req.body.pickup_pincode || ""
     ).trim();
@@ -283,10 +271,6 @@ app.post("/quick-rate", async (req, res) => {
     );
 
 
-    // -------------------------------------------------
-    // VALIDATION
-    // -------------------------------------------------
-
     if (
       !pickup ||
       !drop ||
@@ -312,20 +296,12 @@ app.post("/quick-rate", async (req, res) => {
     }
 
 
-    // -------------------------------------------------
-    // LOGIN
-    // -------------------------------------------------
-
     const token = await getShiprocketToken();
 
     console.log(
       "SHIPROCKET QUICK LOGIN: SUCCESS"
     );
 
-
-    // -------------------------------------------------
-    // HYPERLOCAL SERVICEABILITY
-    // -------------------------------------------------
 
     const quickUrl =
       "https://apiv2.shiprocket.in/v1/external/courier/serviceability/" +
@@ -345,10 +321,6 @@ app.post("/quick-rate", async (req, res) => {
       quickUrl
     );
 
-
-    // -------------------------------------------------
-    // SHIPROCKET API
-    // -------------------------------------------------
 
     const quickResponse = await fetch(
       quickUrl,
@@ -390,10 +362,6 @@ app.post("/quick-rate", async (req, res) => {
     }
 
 
-    // -------------------------------------------------
-    // OPTIONAL QUICK FILTER
-    // -------------------------------------------------
-
     if (
       quickData &&
       Array.isArray(quickData.data)
@@ -422,10 +390,6 @@ app.post("/quick-rate", async (req, res) => {
     }
 
 
-    // -------------------------------------------------
-    // RESPONSE
-    // -------------------------------------------------
-
     return res
       .status(quickResponse.status)
       .json(quickData);
@@ -435,6 +399,107 @@ app.post("/quick-rate", async (req, res) => {
 
     console.error(
       "QUICK RATE ERROR:",
+      error
+    );
+
+
+    return res.status(500).json({
+
+      success: false,
+
+      error: error.message
+
+    });
+
+  }
+
+});
+
+
+// =====================================================
+// INTERNATIONAL ORDER CREATE
+// =====================================================
+
+app.post("/international/order", async (req, res) => {
+
+  try {
+
+    console.log(
+      "INTERNATIONAL ORDER REQUEST:",
+      req.body
+    );
+
+
+    // -------------------------------------------------
+    // LOGIN
+    // -------------------------------------------------
+
+    const token = await getShiprocketToken();
+
+    console.log(
+      "SHIPROCKET INTERNATIONAL LOGIN: SUCCESS"
+    );
+
+
+    // -------------------------------------------------
+    // SHIPROCKET INTERNATIONAL CREATE ORDER
+    // -------------------------------------------------
+
+    const internationalUrl =
+      "https://apiv2.shiprocket.in/v1/external/international/orders/create/adhoc";
+
+
+    const orderResponse = await fetch(
+      internationalUrl,
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+
+        body: JSON.stringify(req.body)
+      }
+    );
+
+
+    const orderText =
+      await orderResponse.text();
+
+
+    console.log(
+      "SHIPROCKET INTERNATIONAL RESPONSE:",
+      orderText
+    );
+
+
+    let orderData;
+
+
+    try {
+
+      orderData =
+        JSON.parse(orderText);
+
+    } catch {
+
+      orderData = {
+        raw: orderText
+      };
+
+    }
+
+
+    return res
+      .status(orderResponse.status)
+      .json(orderData);
+
+
+  } catch (error) {
+
+    console.error(
+      "INTERNATIONAL ORDER ERROR:",
       error
     );
 
