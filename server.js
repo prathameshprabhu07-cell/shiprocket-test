@@ -18,11 +18,10 @@ app.get("/", (req, res) => {
 
 
 // =====================================================
-// SHIPROCKET LOGIN HELPER
+// SHIPROCKET LOGIN
 // =====================================================
 
 async function getShiprocketToken() {
-
   const response = await fetch(
     "https://apiv2.shiprocket.in/v1/external/auth/login",
     {
@@ -44,9 +43,7 @@ async function getShiprocketToken() {
   try {
     data = JSON.parse(text);
   } catch {
-    data = {
-      raw: text
-    };
+    data = { raw: text };
   }
 
   if (!response.ok) {
@@ -56,9 +53,7 @@ async function getShiprocketToken() {
   }
 
   if (!data.token) {
-    throw new Error(
-      "Shiprocket login succeeded but token was not returned"
-    );
+    throw new Error("Shiprocket token not received");
   }
 
   return data.token;
@@ -66,264 +61,157 @@ async function getShiprocketToken() {
 
 
 // =====================================================
-// LOGIN TEST
+// TEST LOGIN
 // =====================================================
 
 app.post("/test", async (req, res) => {
-
   try {
+    const token = await getShiprocketToken();
 
-    const token =
-      await getShiprocketToken();
-
-    return res.json({
+    res.json({
       success: true,
       message: "Shiprocket login successful",
       token_received: !!token
     });
 
   } catch (error) {
+    console.error("LOGIN ERROR:", error);
 
-    console.error(
-      "LOGIN ERROR:",
-      error
-    );
-
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       error: error.message
     });
-
   }
-
 });
 
 
 // =====================================================
-// NORMAL COURIER RATE CHECK
+// NORMAL DOMESTIC RATE
 // =====================================================
 
 app.post("/rate", async (req, res) => {
-
   try {
 
-    console.log(
-      "RATE REQUEST:",
-      req.body
-    );
+    console.log("RATE REQUEST:", req.body);
 
-    const pickup =
-      String(
-        req.body.pickup_pincode || ""
-      ).trim();
+    const pickup = String(
+      req.body.pickup_pincode || ""
+    ).trim();
 
-    const drop =
-      String(
-        req.body.drop_pincode || ""
-      ).trim();
+    const drop = String(
+      req.body.drop_pincode || ""
+    ).trim();
 
-    const parcelWeight =
-      Number(
-        req.body.weight
-      );
+    const weight = Number(req.body.weight);
 
-    const codAmount =
-      Number(
-        req.body.cod || 0
-      );
-
+    const cod = Number(req.body.cod || 0);
 
     if (
       !pickup ||
       !drop ||
-      !Number.isFinite(parcelWeight) ||
-      parcelWeight <= 0
+      !Number.isFinite(weight) ||
+      weight <= 0
     ) {
-
       return res.status(400).json({
-
         success: false,
-
-        message:
-          "pickup_pincode, drop_pincode and weight are required"
-
+        message: "pickup_pincode, drop_pincode and weight are required"
       });
-
     }
 
+    const token = await getShiprocketToken();
 
-    const token =
-      await getShiprocketToken();
-
-
-    const rateUrl =
+    const url =
       "https://apiv2.shiprocket.in/v1/external/courier/serviceability/" +
       `?pickup_postcode=${encodeURIComponent(pickup)}` +
       `&delivery_postcode=${encodeURIComponent(drop)}` +
-      `&weight=${encodeURIComponent(parcelWeight)}` +
-      `&cod=${encodeURIComponent(codAmount)}`;
+      `&weight=${encodeURIComponent(weight)}` +
+      `&cod=${encodeURIComponent(cod)}`;
 
+    console.log("DOMESTIC RATE URL:", url);
 
-    console.log(
-      "RATE URL:",
-      rateUrl
-    );
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      }
+    });
 
+    const text = await response.text();
 
-    const rateResponse =
-      await fetch(
-        rateUrl,
-        {
-          method: "GET",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-
-            "Authorization":
-              `Bearer ${token}`
-          }
-        }
-      );
-
-
-    const rateText =
-      await rateResponse.text();
-
-
-    let rateData;
+    let data;
 
     try {
-
-      rateData =
-        JSON.parse(rateText);
-
+      data = JSON.parse(text);
     } catch {
-
-      rateData = {
-        raw: rateText
-      };
-
+      data = { raw: text };
     }
 
-
-    return res
-      .status(rateResponse.status)
-      .json(rateData);
-
+    res.status(response.status).json(data);
 
   } catch (error) {
 
-    console.error(
-      "RATE ERROR:",
-      error
-    );
+    console.error("RATE ERROR:", error);
 
-    return res.status(500).json({
-
+    res.status(500).json({
       success: false,
-
-      error:
-        error.message
-
+      error: error.message
     });
-
   }
-
 });
 
 
 // =====================================================
-// QUICK DELIVERY / HYPERLOCAL RATE
+// HYPERLOCAL / QUICK RATE
 // =====================================================
 
 app.post("/quick-rate", async (req, res) => {
-
   try {
 
-    console.log(
-      "QUICK RATE REQUEST:",
-      req.body
-    );
+    console.log("QUICK RATE REQUEST:", req.body);
 
+    const pickup = String(
+      req.body.pickup_pincode || ""
+    ).trim();
 
-    const pickup =
-      String(
-        req.body.pickup_pincode || ""
-      ).trim();
+    const drop = String(
+      req.body.drop_pincode || ""
+    ).trim();
 
-    const drop =
-      String(
-        req.body.drop_pincode || ""
-      ).trim();
+    const weight = Number(req.body.weight);
 
-    const parcelWeight =
-      Number(
-        req.body.weight
-      );
+    const cod = Number(req.body.cod || 0);
 
-    const cod =
-      Number(
-        req.body.cod || 0
-      );
+    const latFrom = Number(req.body.lat_from);
+    const longFrom = Number(req.body.long_from);
 
-
-    const latFrom =
-      Number(
-        req.body.lat_from
-      );
-
-    const longFrom =
-      Number(
-        req.body.long_from
-      );
-
-    const latTo =
-      Number(
-        req.body.lat_to
-      );
-
-    const longTo =
-      Number(
-        req.body.long_to
-      );
-
+    const latTo = Number(req.body.lat_to);
+    const longTo = Number(req.body.long_to);
 
     if (
       !pickup ||
       !drop ||
-      !Number.isFinite(parcelWeight) ||
-      parcelWeight <= 0 ||
+      !Number.isFinite(weight) ||
+      weight <= 0 ||
       !Number.isFinite(latFrom) ||
       !Number.isFinite(longFrom) ||
       !Number.isFinite(latTo) ||
       !Number.isFinite(longTo)
     ) {
-
       return res.status(400).json({
-
         success: false,
-
         message:
-          "pickup_pincode, drop_pincode, weight, lat_from, long_from, lat_to and long_to are required",
-
-        received:
-          req.body
-
+          "pickup_pincode, drop_pincode, weight, lat_from, long_from, lat_to and long_to are required"
       });
-
     }
 
+    const token = await getShiprocketToken();
 
-    const token =
-      await getShiprocketToken();
-
-
-    const quickUrl =
+    const url =
       "https://apiv2.shiprocket.in/v1/external/courier/serviceability/" +
       `?pickup_postcode=${encodeURIComponent(pickup)}` +
       `&delivery_postcode=${encodeURIComponent(drop)}` +
-      `&weight=${encodeURIComponent(parcelWeight)}` +
+      `&weight=${encodeURIComponent(weight)}` +
       `&cod=${encodeURIComponent(cod)}` +
       `&is_new_hyperlocal=1` +
       `&lat_from=${encodeURIComponent(latFrom)}` +
@@ -331,106 +219,42 @@ app.post("/quick-rate", async (req, res) => {
       `&lat_to=${encodeURIComponent(latTo)}` +
       `&long_to=${encodeURIComponent(longTo)}`;
 
+    console.log("QUICK RATE URL:", url);
 
-    console.log(
-      "QUICK URL:",
-      quickUrl
-    );
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      }
+    });
 
+    const text = await response.text();
 
-    const quickResponse =
-      await fetch(
-        quickUrl,
-        {
-          method: "GET",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-
-            "Authorization":
-              `Bearer ${token}`
-          }
-        }
-      );
-
-
-    const quickText =
-      await quickResponse.text();
-
-
-    let quickData;
+    let data;
 
     try {
-
-      quickData =
-        JSON.parse(quickText);
-
+      data = JSON.parse(text);
     } catch {
-
-      quickData = {
-        raw: quickText
-      };
-
+      data = { raw: text };
     }
 
-
-    if (
-      quickData &&
-      Array.isArray(quickData.data)
-    ) {
-
-      quickData.quick_couriers =
-        quickData.data.filter(
-          courier => {
-
-            const name =
-              String(
-                courier.courier_name || ""
-              ).toLowerCase();
-
-            return (
-              name.includes("quick") ||
-              name.includes("rush") ||
-              name.includes("same day") ||
-              name.includes("sdd") ||
-              name.includes("ndd")
-            );
-
-          }
-        );
-
-    }
-
-
-    return res
-      .status(quickResponse.status)
-      .json(quickData);
-
+    res.status(response.status).json(data);
 
   } catch (error) {
 
-    console.error(
-      "QUICK RATE ERROR:",
-      error
-    );
+    console.error("QUICK RATE ERROR:", error);
 
-    return res.status(500).json({
-
+    res.status(500).json({
       success: false,
-
-      error:
-        error.message
-
+      error: error.message
     });
-
   }
-
 });
 
 
 // =====================================================
-// INTERNATIONAL COURIER
+// INTERNATIONAL RATE
 // =====================================================
 
 app.post("/international/rates", async (req, res) => {
@@ -438,85 +262,53 @@ app.post("/international/rates", async (req, res) => {
   try {
 
     console.log(
-      "INTERNATIONAL RATE REQUEST:",
-      JSON.stringify(
-        req.body,
-        null,
-        2
-      )
+      "================================================="
+    );
+
+    console.log(
+      "INTERNATIONAL RATE REQUEST:"
+    );
+
+    console.log(
+      JSON.stringify(req.body, null, 2)
     );
 
 
-    const sender =
-      req.body.sender || {};
+    // -------------------------------------------------
+    // INPUT
+    // -------------------------------------------------
 
-    const receiver =
-      req.body.receiver || {};
+    const body = req.body;
 
-    const pkg =
-      req.body.package || {};
-
-    const exportData =
-      req.body.export || {};
+    const sender = body.sender || {};
+    const receiver = body.receiver || {};
+    const pkg = body.package || {};
+    const exportData = body.export || {};
 
 
     // -------------------------------------------------
-    // PACKAGE VALUES
+    // BASIC VALIDATION
     // -------------------------------------------------
 
-    const weight =
-      Number(pkg.weight);
-
-    const length =
-      Number(pkg.length);
-
-    const breadth =
-      Number(pkg.breadth);
-
-    const height =
-      Number(pkg.height);
-
-    const productValue =
-      Number(
-        pkg.productValue || 0
-      );
-
-    const quantity =
-      Number(
-        pkg.quantity || 1
-      );
-
-
-    // -------------------------------------------------
-    // VALIDATION
-    // -------------------------------------------------
-
-    if (
-      !sender.pincode ||
-      !receiver.country ||
-      !receiver.pincode ||
-      !Number.isFinite(weight) ||
-      weight <= 0 ||
-      !Number.isFinite(length) ||
-      length <= 0 ||
-      !Number.isFinite(breadth) ||
-      breadth <= 0 ||
-      !Number.isFinite(height) ||
-      height <= 0
-    ) {
-
+    if (!sender.pincode) {
       return res.status(400).json({
-
         success: false,
-
-        message:
-          "International shipment requires sender pincode, receiver country/pincode, weight and dimensions",
-
-        received:
-          req.body
-
+        message: "sender.pincode is required"
       });
+    }
 
+    if (!receiver.pincode) {
+      return res.status(400).json({
+        success: false,
+        message: "receiver.pincode is required"
+      });
+    }
+
+    if (!pkg.weight) {
+      return res.status(400).json({
+        success: false,
+        message: "package.weight is required"
+      });
     }
 
 
@@ -524,9 +316,7 @@ app.post("/international/rates", async (req, res) => {
     // SHIPROCKET LOGIN
     // -------------------------------------------------
 
-    const token =
-      await getShiprocketToken();
-
+    const token = await getShiprocketToken();
 
     console.log(
       "SHIPROCKET INTERNATIONAL LOGIN: SUCCESS"
@@ -534,158 +324,81 @@ app.post("/international/rates", async (req, res) => {
 
 
     // -------------------------------------------------
-    // INTERNATIONAL DATA
+    // INTERNATIONAL RATE
     // -------------------------------------------------
 
-    const internationalData = {
+    /*
+      NOTE:
 
-      success: true,
+      Shiprocket international pricing is account/service
+      dependent. We first send the international shipment
+      details to the proxy and then call Shiprocket's
+      international serviceability endpoint.
+    */
 
-      serviceType:
-        "International",
-
-      action:
-        "check_rates",
-
-      sender: {
-
-        name:
-          sender.name || "",
-
-        mobile:
-          sender.mobile || "",
-
-        email:
-          sender.email || "",
-
-        address:
-          sender.address || "",
-
-        city:
-          sender.city || "",
-
-        state:
-          sender.state || "",
-
-        pincode:
-          sender.pincode || "",
-
-        country:
-          sender.country || ""
-
-      },
+    const rateUrl =
+      "https://apiv2.shiprocket.in/v1/external/international/courier/serviceability";
 
 
-      receiver: {
-
-        name:
-          receiver.name || "",
-
-        mobile:
-          receiver.mobile || "",
-
-        email:
-          receiver.email || "",
-
-        address:
-          receiver.address || "",
-
-        city:
-          receiver.city || "",
-
-        state:
-          receiver.state || "",
-
-        pincode:
-          receiver.pincode || "",
-
-        country:
-          receiver.country || ""
-
-      },
+    const query = new URLSearchParams({
+      pickup_postcode: String(sender.pincode),
+      delivery_postcode: String(receiver.pincode),
+      weight: String(pkg.weight)
+    });
 
 
-      package: {
-
-        itemName:
-          pkg.itemName || "",
-
-        category:
-          pkg.category || "",
-
-        sku:
-          pkg.sku || "",
-
-        quantity,
-
-        productValue,
-
-        currency:
-          pkg.currency || "USD",
-
-        hsn:
-          pkg.hsn || "",
-
-        weight,
-
-        length,
-
-        breadth,
-
-        height
-
-      },
+    const finalUrl =
+      `${rateUrl}?${query.toString()}`;
 
 
-      export: {
-
-        purposeOfShipment:
-          exportData.purposeOfShipment || "",
-
-        reasonOfExport:
-          Number(
-            exportData.reasonOfExport || 0
-          ),
-
-        commodity:
-          exportData.commodity === true ||
-          exportData.commodity === "true",
-
-        igstPaymentStatus:
-          exportData.igstPaymentStatus || "A",
-
-        termsOfInvoice:
-          exportData.termsOfInvoice || "FOB",
-
-        eori:
-          exportData.eori || "",
-
-        ioss:
-          exportData.ioss || ""
-
-      },
-
-
-      shiprocket: {
-
-        authenticated:
-          !!token,
-
-        ready_for_order_creation:
-          true
-
-      },
-
-
-      message:
-        "International shipment data validated successfully"
-
-    };
-
-
-    return res.json(
-      internationalData
+    console.log(
+      "INTERNATIONAL RATE URL:",
+      finalUrl
     );
+
+
+    const response = await fetch(
+      finalUrl,
+      {
+        method: "GET",
+
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        }
+      }
+    );
+
+
+    const text =
+      await response.text();
+
+
+    console.log(
+      "SHIPROCKET INTERNATIONAL RESPONSE:",
+      text
+    );
+
+
+    let data;
+
+
+    try {
+
+      data = JSON.parse(text);
+
+    } catch {
+
+      data = {
+        raw: text
+      };
+
+    }
+
+
+    return res
+      .status(response.status)
+      .json(data);
 
 
   } catch (error) {
@@ -700,11 +413,94 @@ app.post("/international/rates", async (req, res) => {
 
       success: false,
 
-      message:
-        "International rate processing failed",
+      error: error.message
 
-      error:
-        error.message
+    });
+
+  }
+
+});
+
+
+// =====================================================
+// INTERNATIONAL ORDER CREATE
+// =====================================================
+
+app.post("/international/order", async (req, res) => {
+
+  try {
+
+    console.log(
+      "INTERNATIONAL ORDER REQUEST:",
+      JSON.stringify(req.body, null, 2)
+    );
+
+
+    const token =
+      await getShiprocketToken();
+
+
+    const response =
+      await fetch(
+        "https://apiv2.shiprocket.in/v1/external/international/orders/create/adhoc",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+
+          body: JSON.stringify(req.body)
+        }
+      );
+
+
+    const text =
+      await response.text();
+
+
+    let data;
+
+
+    try {
+
+      data =
+        JSON.parse(text);
+
+    } catch {
+
+      data = {
+        raw: text
+      };
+
+    }
+
+
+    console.log(
+      "SHIPROCKET INTERNATIONAL ORDER RESPONSE:",
+      data
+    );
+
+
+    return res
+      .status(response.status)
+      .json(data);
+
+
+  } catch (error) {
+
+    console.error(
+      "INTERNATIONAL ORDER ERROR:",
+      error
+    );
+
+
+    return res.status(500).json({
+
+      success: false,
+
+      error: error.message
 
     });
 
