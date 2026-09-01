@@ -341,10 +341,12 @@ app.post("/international/rates", async (req, res) => {
 
 
     const query = new URLSearchParams({
-      pickup_postcode: String(sender.pincode),
-      delivery_postcode: String(receiver.pincode),
-      weight: String(pkg.weight)
-    });
+  pickup_postcode: String(sender.pincode),
+  delivery_postcode: String(receiver.pincode),
+  weight: String(pkg.weight),
+  cod: "0",
+  delivery_country: String(receiver.country)
+});
 
 
     const finalUrl =
