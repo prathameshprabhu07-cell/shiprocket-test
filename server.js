@@ -304,6 +304,13 @@ app.post("/international/rates", async (req, res) => {
       });
     }
 
+    if (!receiver.country) {
+      return res.status(400).json({
+        success: false,
+        message: "receiver.country is required"
+      });
+    }
+
     if (!pkg.weight) {
       return res.status(400).json({
         success: false,
@@ -327,26 +334,31 @@ app.post("/international/rates", async (req, res) => {
     // INTERNATIONAL RATE
     // -------------------------------------------------
 
-    /*
-      NOTE:
-
-      Shiprocket international pricing is account/service
-      dependent. We first send the international shipment
-      details to the proxy and then call Shiprocket's
-      international serviceability endpoint.
-    */
-
     const rateUrl =
       "https://apiv2.shiprocket.in/v1/external/international/courier/serviceability";
 
 
+    // -------------------------------------------------
+    // INTERNATIONAL QUERY
+    // -------------------------------------------------
+
     const query = new URLSearchParams({
-  pickup_postcode: String(sender.pincode),
-  delivery_postcode: String(receiver.pincode),
-  weight: String(pkg.weight),
-  cod: "0",
-  delivery_country: String(receiver.country)
-});
+      pickup_postcode: String(sender.pincode),
+
+      delivery_postcode: String(receiver.pincode),
+
+      delivery_country: String(receiver.country),
+
+      weight: String(pkg.weight),
+
+      cod: "0",
+
+      length: String(pkg.length || 0),
+
+      breadth: String(pkg.breadth || 0),
+
+      height: String(pkg.height || 0)
+    });
 
 
     const finalUrl =
@@ -358,6 +370,10 @@ app.post("/international/rates", async (req, res) => {
       finalUrl
     );
 
+
+    // -------------------------------------------------
+    // CALL SHIPROCKET
+    // -------------------------------------------------
 
     const response = await fetch(
       finalUrl,
@@ -371,6 +387,10 @@ app.post("/international/rates", async (req, res) => {
       }
     );
 
+
+    // -------------------------------------------------
+    // RESPONSE
+    // -------------------------------------------------
 
     const text =
       await response.text();
